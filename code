@@ -1,0 +1,180 @@
+data <- read.csv("repdata-data-StormData.csv.bz2")
+data$EVTYPE = toupper(data$EVTYPE)
+dim(data)
+## [1] 902297     37
+head(data)
+##   STATE__           BGN_DATE BGN_TIME TIME_ZONE COUNTY COUNTYNAME STATE
+## 1       1  4/18/1950 0:00:00     0130       CST     97     MOBILE    AL
+## 2       1  4/18/1950 0:00:00     0145       CST      3    BALDWIN    AL
+## 3       1  2/20/1951 0:00:00     1600       CST     57    FAYETTE    AL
+## 4       1   6/8/1951 0:00:00     0900       CST     89    MADISON    AL
+## 5       1 11/15/1951 0:00:00     1500       CST     43    CULLMAN    AL
+## 6       1 11/15/1951 0:00:00     2000       CST     77 LAUDERDALE    AL
+##    EVTYPE BGN_RANGE BGN_AZI BGN_LOCATI END_DATE END_TIME COUNTY_END
+## 1 TORNADO         0                                               0
+## 2 TORNADO         0                                               0
+## 3 TORNADO         0                                               0
+## 4 TORNADO         0                                               0
+## 5 TORNADO         0                                               0
+## 6 TORNADO         0                                               0
+##   COUNTYENDN END_RANGE END_AZI END_LOCATI LENGTH WIDTH F MAG FATALITIES
+## 1         NA         0                      14.0   100 3   0          0
+## 2         NA         0                       2.0   150 2   0          0
+## 3         NA         0                       0.1   123 2   0          0
+## 4         NA         0                       0.0   100 2   0          0
+## 5         NA         0                       0.0   150 2   0          0
+## 6         NA         0                       1.5   177 2   0          0
+##   INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP WFO STATEOFFIC ZONENAMES
+## 1       15    25.0          K       0                                    
+## 2        0     2.5          K       0                                    
+## 3        2    25.0          K       0                                    
+## 4        2     2.5          K       0                                    
+## 5        2     2.5          K       0                                    
+## 6        6     2.5          K       0                                    
+##   LATITUDE LONGITUDE LATITUDE_E LONGITUDE_ REMARKS REFNUM
+## 1     3040      8812       3051       8806              1
+## 2     3042      8755          0          0              2
+## 3     3340      8742          0          0              3
+## 4     3458      8626          0          0              4
+## 5     3412      8642          0          0              5
+## 6     3450      8748          0          0              6
+By doing this, we succesfully load the data and we keep all of the events name to upper cases which could help to combine in the following.
+
+From the page 6 of the cookbook, we found there are several types of events which are represented in more than one names, such as “TSTM WIND” and “TUNDERSTORM WIND”. Therefore, we change the name of these events as following.
+
+data[data$EVTYPE == "TSTM WIND", ]$EVTYPE = "THUNDERSTORM WIND"
+data[data$EVTYPE == "THUNDERSTORM WINDS", ]$EVTYPE = "THUNDERSTORM WIND"
+data[data$EVTYPE == "RIVER FLOOD", ]$EVTYPE = "FLOOD"
+data[data$EVTYPE == "HURRICANE/TYPHOON", ]$EVTYPE = "HURRICANE-TYPHOON"
+data[data$EVTYPE == "HURRICANE", ]$EVTYPE = "HURRICANE-TYPHOON"
+3. Results
+
+3.1 The most harmful events to human healths
+
+First, let's revisit the information of this data set in the second part.
+
+We find that this sets data counts four types of damage: fatality (FATALITIES) , injury (INJURIES), property damage (PROPDMG) and crop damage (CROPDMG) , while the latter two should be calculated with magnitude, PROPDMGEXP and CROPDMGEXP. Since only the first two items related to human health directly, we summarized these two types of data here.
+
+fatal <- aggregate(FATALITIES ~ EVTYPE, data = data, sum)
+fatal1 <- fatal[fatal$FATALITIES > 0, ]
+fatalorder <- fatal1[order(fatal1$FATALITIES, decreasing = TRUE), ]
+head(fatalorder)
+##                EVTYPE FATALITIES
+## 755           TORNADO       5633
+## 116    EXCESSIVE HEAT       1903
+## 138       FLASH FLOOD        978
+## 243              HEAT        937
+## 417         LIGHTNING        816
+## 683 THUNDERSTORM WIND        701
+The code above aggregates the fatality data by event type and rank them in the decreasing order. We can find that tornado and excessive heat are two of the most events which cause fatality in the past years since 1950. Next, we will summary the data of injury.
+
+injury <- aggregate(INJURIES ~ EVTYPE, data = data, sum)
+injury1 <- injury[injury$INJURIES > 0, ]
+injuryorder <- injury1[order(injury1$INJURIES, decreasing = TRUE), ]
+head(injuryorder)
+##                EVTYPE INJURIES
+## 755           TORNADO    91346
+## 683 THUNDERSTORM WIND     9353
+## 154             FLOOD     6791
+## 116    EXCESSIVE HEAT     6525
+## 417         LIGHTNING     5230
+## 243              HEAT     2100
+Interestingly enough, we find that the most two events causing people injury are still tornado and excessive heat, which are identical the the previous data.
+
+Then we can draw a panel of two figures which contains both fatality and injury data.
+
+par(mfrow = c(2, 1))
+barplot(fatalorder[1:10, 2], col = rainbow(10), legend.text = fatalorder[1:10, 
+    1], ylab = "Fatality", main = "10 natural events cause most fatality")
+barplot(injuryorder[1:10, 2], col = rainbow(10), legend.text = injuryorder[1:10, 
+    1], ylab = "Injuried people", main = "10 natural events cause most people injuries")
+plot of chunk unnamed-chunk-5
+
+We can also find what events cause both major fatality and body injury.
+
+intersect(fatalorder[1:10, 1], injuryorder[1:10, 1])
+## [1] "TORNADO"           "EXCESSIVE HEAT"    "FLASH FLOOD"      
+## [4] "HEAT"              "LIGHTNING"         "THUNDERSTORM WIND"
+## [7] "FLOOD"
+There are 7 types of events which are listed in top 10 of fatality and body injury. Definitely, tornado is the most harmful event to human health while others uinclude excceise heat, flash flood, and thunderstorm wind.
+
+3.2 The most harmful events to properties
+
+In this chapter, we try to summarize the property damage and crop damage caused by these natural events.
+
+unique(data$PROPDMGEXP)
+##  [1] K M   B m + 0 5 6 ? 4 2 3 h 7 H - 1 8
+## Levels:  - ? + 0 1 2 3 4 5 6 7 8 B h H K m M
+unique(data$CROPDMGEXP)
+## [1]   M K m B ? 0 k 2
+## Levels:  ? 0 2 B k K m M
+From the page 12 of the cookbook, the letter “K” stands for thousands, while “M” for millions and “B” for billions. however, we find both upper and lower case from these letters. The first thing we need to do is to transform the exponential terms back into actual values.
+
+data[data$PROPDMGEXP == "K", ]$PROPDMG <- data[data$PROPDMGEXP == "K", ]$PROPDMG * 
+    1000
+data[data$PROPDMGEXP == "M", ]$PROPDMG <- data[data$PROPDMGEXP == "M", ]$PROPDMG * 
+    1e+06
+data[data$PROPDMGEXP == "m", ]$PROPDMG <- data[data$PROPDMGEXP == "m", ]$PROPDMG * 
+    1e+06
+data[data$PROPDMGEXP == "B", ]$PROPDMG <- data[data$PROPDMGEXP == "B", ]$PROPDMG * 
+    1e+09
+data[data$CROPDMGEXP == "K", ]$CROPDMG <- data[data$CROPDMGEXP == "K", ]$CROPDMG * 
+    1000
+data[data$CROPDMGEXP == "k", ]$CROPDMG <- data[data$CROPDMGEXP == "k", ]$CROPDMG * 
+    1000
+data[data$CROPDMGEXP == "M", ]$CROPDMG <- data[data$CROPDMGEXP == "M", ]$CROPDMG * 
+    1e+06
+data[data$CROPDMGEXP == "m", ]$CROPDMG <- data[data$CROPDMGEXP == "m", ]$CROPDMG * 
+    1e+06
+data[data$CROPDMGEXP == "B", ]$CROPDMG <- data[data$CROPDMGEXP == "B", ]$CROPDMG * 
+    1e+09
+Therefore, we can aggregate the propery damage and crop damage by event types and rank them in decreasing order.
+
+damage <- aggregate(PROPDMG ~ EVTYPE, data = data, sum)
+damage1 <- damage[damage$PROPDMG > 0, ]
+damageorder <- damage1[order(damage1$PROPDMG, decreasing = TRUE), ]
+head(damageorder)
+##                EVTYPE   PROPDMG
+## 154             FLOOD 1.498e+11
+## 364 HURRICANE-TYPHOON 8.117e+10
+## 755           TORNADO 5.694e+10
+## 597       STORM SURGE 4.332e+10
+## 138       FLASH FLOOD 1.614e+10
+## 212              HAIL 1.573e+10
+We find the flood is the most harmful event as regarding to property damage, while the second most harmful event is hurricane(typhoon).
+
+cropdmg <- aggregate(CROPDMG ~ EVTYPE, data = data, sum)
+cropdmg1 <- cropdmg[cropdmg$CROPDMG > 0, ]
+cropdmgorder <- cropdmg1[order(cropdmg1$CROPDMG, decreasing = TRUE), ]
+head(cropdmgorder)
+##                EVTYPE   CROPDMG
+## 84            DROUGHT 1.397e+10
+## 154             FLOOD 1.069e+10
+## 364 HURRICANE-TYPHOON 5.350e+09
+## 386         ICE STORM 5.022e+09
+## 212              HAIL 3.026e+09
+## 138       FLASH FLOOD 1.421e+09
+This time we found that drought is the most harmful event causing crop damage while the flood and hurricane(typhoon) are the second and third harmful events.
+
+The next thing is to use a panel of two figures to show the most 10 harmful events in two categories.
+
+par(mfrow = c(2, 1))
+barplot(damageorder[1:10, 2], col = rainbow(10), legend.text = damageorder[1:10, 
+    1], ylab = "Property damage", main = "10 natural events caused most property damage")
+barplot(cropdmgorder[1:10, 2], col = rainbow(10), legend.text = cropdmgorder[1:10, 
+    1], ylab = "Crop damage", main = "10 natural events caused most crop damage")
+plot of chunk unnamed-chunk-11
+
+We can see the sequence of two types of damages are different, so we can add these two types of damage together to see to sum.
+
+totaldmg <- merge(damageorder, cropdmgorder, by = "EVTYPE")
+totaldmg$total = totaldmg$PROPDMG + totaldmg$CROPDMG
+totaldmgorder <- totaldmg[order(totaldmg$total, decreasing = TRUE), ]
+totaldmgorder[1:5, ]
+##               EVTYPE   PROPDMG   CROPDMG     total
+## 19             FLOOD 1.498e+11 1.069e+10 1.605e+11
+## 48 HURRICANE-TYPHOON 8.117e+10 5.350e+09 8.652e+10
+## 82           TORNADO 5.694e+10 4.150e+08 5.735e+10
+## 66       STORM SURGE 4.332e+10 5.000e+03 4.332e+10
+## 31              HAIL 1.573e+10 3.026e+09 1.876e+10
+We can see the 5 events cause most economic consequences are flood, hurricane, tornado, storm surge and hail.
